@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import TeamModal from '../components/TeamModal';
 import TaskModal from '../components/TaskModal';
-import TaskFilterBar from '../components/TaskFilterBar'; // NEW: Imported UI Component
-import useFilteredTasks from '../hooks/useFilteredTasks'; // NEW: Imported Custom Hook
+import InviteModal from '../components/InviteModal';
+import TaskFilterBar from '../components/TaskFilterBar'; 
+import useFilteredTasks from '../hooks/useFilteredTasks'; 
 import api from '../api/axios';
 import { Plus, Clock, CheckCircle2, AlertCircle, Menu, Activity, Trash2, MailPlus } from 'lucide-react';
 
@@ -11,6 +12,7 @@ export default function Dashboard() {
   // --- 1. Core State Management ---
   const [teams, setTeams] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [users, setUsers] = useState([]); // Holds users for task assignments
   const [activeTeam, setActiveTeam] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -18,9 +20,10 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [taskToEdit, setTaskToEdit] = useState(null); // Tracks which task to update 
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); 
+  const [taskToEdit, setTaskToEdit] = useState(null); 
 
-  // --- 3. Custom Hook Integration (Gap 2 Solved)  ---
+  // --- 3. Custom Hook Integration (Gap 2 Solved) ---
   const {
     searchQuery,
     setSearchQuery,
@@ -39,6 +42,15 @@ export default function Dashboard() {
         
         const tasksRes = await api.get('/tasks/');
         setTasks(tasksRes.data);
+
+        // Fetch users to populate assignment dropdowns
+        try {
+          const usersRes = await api.get('/users/'); 
+          setUsers(usersRes.data);
+        } catch (e) {
+          console.warn("Users endpoint not found. Using empty list.");
+          setUsers([]);
+        }
       } catch (err) {
         console.error("Error fetching dashboard data", err);
       } finally {
@@ -55,17 +67,36 @@ export default function Dashboard() {
   };
 
   const openNewTaskModal = () => {
-    setTaskToEdit(null); // Ensure we are in "Create Mode"
+    setTaskToEdit(null); 
     setIsTaskModalOpen(true);
   };
 
   const openEditTaskModal = (task) => {
-    setTaskToEdit(task); // Pass the specific task to "Edit Mode" 
+    setTaskToEdit(task); 
     setIsTaskModalOpen(true);
   };
 
-  // --- 6. Derived Statistics ---
-  // Calculates stats dynamically based on the CURRENT search/filter results
+  // --- 6. Role-Based Delete Logic ---
+  const handleDeleteTeam = async () => {
+    if (!window.confirm(`Are you sure you want to delete "${activeTeam.name}"? All tasks will be lost.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/teams/${activeTeam.id}/`);
+      const updatedTeams = teams.filter(t => t.id !== activeTeam.id);
+      setTeams(updatedTeams);
+      setActiveTeam(updatedTeams.length > 0 ? updatedTeams[0] : null);
+    } catch (err) {
+      if (err.response?.status === 403) {
+        alert("🔒 Access Denied: Only the team creator has permission to delete this team.");
+      } else {
+        alert("An error occurred while trying to delete the team.");
+      }
+    }
+  };
+
+  // --- 7. Derived Statistics ---
   const completedTasks = filteredTasks.filter(t => t.status === 'done').length;
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress').length;
 
@@ -107,15 +138,21 @@ export default function Dashboard() {
         isOpen={isTaskModalOpen} 
         onClose={() => {
           setIsTaskModalOpen(false);
-          setTaskToEdit(null); // Reset after closing
+          setTaskToEdit(null); 
         }} 
         activeTeam={activeTeam}
-        taskToEdit={taskToEdit} // Passes data for updating 
+        taskToEdit={taskToEdit} 
+        users={users} 
         onTaskCreated={(newTask) => setTasks([...tasks, newTask])} 
         onTaskUpdated={(updatedTask) => {
-          // Replaces the old task with the updated one in state
           setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
         }}
+      />
+
+      <InviteModal 
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        activeTeam={activeTeam}
       />
 
       {/* Main Content Area */}
@@ -140,7 +177,6 @@ export default function Dashboard() {
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
-            {/* The Modular Filter Bar  */}
             <TaskFilterBar 
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -161,10 +197,9 @@ export default function Dashboard() {
         {/* Dashboard Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           
-          {/* Main Left Column */}
+          {/* Main Left Column (Task List) */}
           <div className="lg:col-span-2 space-y-6 lg:space-y-8">
             
-            {/* Prominent Overview Card */}
             <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-[32px] p-6 sm:p-8 text-white shadow-lg shadow-green-200 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-white opacity-10 rounded-full -mr-10 -mt-10 sm:-mr-20 sm:-mt-20 blur-2xl"></div>
               <h2 className="text-green-50 text-xs sm:text-sm font-bold uppercase tracking-wider mb-1 relative z-10">Filtered Overview</h2>
@@ -186,10 +221,9 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Sleek Task List */}
             <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Task Directory [cite: 20]</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Task Directory</h3>
               </div>
 
               <div className="space-y-3 sm:space-y-4">
@@ -197,7 +231,7 @@ export default function Dashboard() {
                   filteredTasks.map((task) => (
                     <div 
                       key={task.id} 
-                      [cite_start]onClick={() => openEditTaskModal(task)} // Opens Edit Mode 
+                      onClick={() => openEditTaskModal(task)} 
                       className="group flex items-center justify-between p-3 sm:p-4 rounded-2xl hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all cursor-pointer shadow-sm hover:shadow-md"
                     >
                       <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
@@ -221,8 +255,19 @@ export default function Dashboard() {
                         }`}>
                           {task.status.replace('_', ' ')}
                         </span>
+                        
+                        {/* Task Assignee Initials */}
                         <div className="flex -space-x-2">
-                          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[7px] sm:text-[8px] font-bold">SA</div>
+                          {task.assigned_to_name ? (
+                            <div 
+                              title={`Assigned to ${task.assigned_to_name}`}
+                              className="w-6 h-6 rounded-full bg-black border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-sm"
+                            >
+                              {task.assigned_to_name.substring(0, 2).toUpperCase()}
+                            </div>
+                          ) : (
+                            <div title="Unassigned" className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-400">?</div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -237,7 +282,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right Column (Team Details & Bonus Features Setup) */}
+          {/* Right Column (Team Details & Actions) */}
           <div className="space-y-6 lg:space-y-8">
             <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border border-gray-100 flex flex-col h-full">
               <h3 className="text-lg font-bold text-gray-900 mb-6">Team Profile</h3>
@@ -252,8 +297,11 @@ export default function Dashboard() {
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                   <p className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-widest">Members</p>
-                  {/* Pre-setup for Bonus Feature: Invites  */}
-                  <button className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-100 transition-colors">
+                  <button 
+                    onClick={() => setIsInviteModalOpen(true)}
+                    disabled={!activeTeam}
+                    className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <MailPlus size={14} /> Invite
                   </button>
                 </div>
@@ -270,9 +318,9 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Pre-setup for Bonus Feature: Role Based Access (Delete)  */}
               <div className="pt-6 border-t border-gray-100 mt-auto">
                  <button 
+                  onClick={handleDeleteTeam}
                   disabled={!activeTeam}
                   className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 py-3.5 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                  >

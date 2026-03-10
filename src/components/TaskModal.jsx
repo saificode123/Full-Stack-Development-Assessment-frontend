@@ -1,27 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, CheckSquare, AlertCircle, LayoutList, Edit3 } from 'lucide-react';
+import { X, CheckSquare, AlertCircle, LayoutList, Edit3, UserPlus } from 'lucide-react';
 import api from '../api/axios';
 
 export default function TaskModal({ 
   isOpen, 
   onClose, 
   onTaskCreated, 
-  onTaskUpdated, // NEW: Handler for successful updates
+  onTaskUpdated, 
   activeTeam, 
-  taskToEdit // NEW: The task object we want to edit (null if creating)
+  taskToEdit,
+  users // NEW: List of users to populate the assignee dropdown
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('todo');
+  const [assignedTo, setAssignedTo] = useState(''); // NEW: Assignee state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
   const inputRef = useRef(null);
-
-  // Determine if we are in Edit Mode
   const isEditMode = Boolean(taskToEdit);
 
-  // Handle 'Escape' key & Pre-fill form data for Edit Mode
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') handleClose();
@@ -31,26 +30,24 @@ export default function TaskModal({
       window.addEventListener('keydown', handleEscape);
       setTimeout(() => inputRef.current?.focus(), 100);
       
-      // PRE-FILL LOGIC: If editing, populate the fields
       if (taskToEdit) {
         setTitle(taskToEdit.title || '');
         setDescription(taskToEdit.description || '');
         setStatus(taskToEdit.status || 'todo');
+        setAssignedTo(taskToEdit.assigned_to || ''); // Pre-fill assignee
       } else {
-        // Reset if creating new
         setTitle('');
         setDescription('');
         setStatus('todo');
+        setAssignedTo('');
       }
     }
 
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen, taskToEdit]); // Re-run if taskToEdit changes
+  }, [isOpen, taskToEdit]);
 
-  // Prevent rendering if not open or no team is selected
   if (!isOpen || !activeTeam) return null;
 
-  // Helper to cleanly close and reset errors
   const handleClose = () => {
     setError('');
     onClose();
@@ -61,30 +58,26 @@ export default function TaskModal({
     setLoading(true);
     setError(''); 
     
+    // Prepare payload matching Django models
+    const payload = {
+      title,
+      description,
+      status,
+      team: activeTeam.id,
+      assigned_to: assignedTo ? parseInt(assignedTo) : null // Ensure integer ID or null
+    };
+    
     try {
       if (isEditMode) {
-        // UPDATE MODE: PATCH request to the specific task endpoint
-        const response = await api.patch(`/tasks/${taskToEdit.id}/`, {
-          title,
-          description,
-          status,
-          team: activeTeam.id
-        });
-        onTaskUpdated(response.data); // Update the task in the dashboard state
+        const response = await api.patch(`/tasks/${taskToEdit.id}/`, payload);
+        onTaskUpdated(response.data); 
       } else {
-        // CREATE MODE: POST request to the base tasks endpoint
-        const response = await api.post('/tasks/', { 
-          title, 
-          description, 
-          status,
-          team: activeTeam.id 
-        });
-        onTaskCreated(response.data); // Add the new task to the dashboard state
+        const response = await api.post('/tasks/', payload);
+        onTaskCreated(response.data); 
       }
       handleClose();
     } catch (err) {
       console.error("Error saving task", err);
-      // Professional error handling extracting Django validation messages
       setError(err.response?.data?.title?.[0] || 'Failed to save task. Please try again.');
     } finally {
       setLoading(false);
@@ -100,7 +93,6 @@ export default function TaskModal({
         className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Dynamic Header Section */}
         <div className="p-6 sm:px-8 border-b border-gray-50 flex justify-between items-center shrink-0">
           <div>
             <h2 className="text-xl font-extrabold text-gray-900 flex items-center gap-3 mb-1">
@@ -116,13 +108,11 @@ export default function TaskModal({
           <button 
             onClick={handleClose} 
             className="p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95"
-            aria-label="Close modal"
           >
             <X size={20} className="text-gray-400 hover:text-gray-900" />
           </button>
         </div>
 
-        {/* Scrollable Form Section */}
         <div className="overflow-y-auto overflow-x-hidden p-6 sm:p-8 custom-scrollbar">
           <form onSubmit={handleSubmit} className="space-y-6">
             
@@ -149,23 +139,51 @@ export default function TaskModal({
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1" htmlFor="taskStatus">
-                Status
-              </label>
-              <div className="relative">
-                <select
-                  id="taskStatus"
-                  className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-900 transition-all text-sm sm:text-base text-gray-900 appearance-none font-medium cursor-pointer"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="done">Done</option>
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-500">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Status Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1" htmlFor="taskStatus">
+                  Status
+                </label>
+                <div className="relative">
+                  <select
+                    id="taskStatus"
+                    className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-900 transition-all text-sm sm:text-base text-gray-900 appearance-none font-medium cursor-pointer"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Assignee Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1" htmlFor="taskAssignee">
+                  Assign To
+                </label>
+                <div className="relative">
+                  <select
+                    id="taskAssignee"
+                    className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-900 transition-all text-sm sm:text-base text-gray-900 appearance-none font-medium cursor-pointer"
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.username}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-500">
+                    <UserPlus size={16} />
+                  </div>
                 </div>
               </div>
             </div>
