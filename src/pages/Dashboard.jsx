@@ -61,14 +61,18 @@ export default function Dashboard() {
         setCurrentUser(profileRes.data);
 
         const teamsRes = await api.get('/teams/');
-        setTeams(teamsRes.data);
-        if (teamsRes.data.length > 0) setActiveTeam(teamsRes.data[0]);
+        // Ensure teamsRes.data is an array before using
+        const teamsData = Array.isArray(teamsRes.data) ? teamsRes.data : [];
+        setTeams(teamsData);
+        if (teamsData.length > 0) setActiveTeam(teamsData[0]);
         
         const tasksRes = await api.get('/tasks/');
-        setTasks(tasksRes.data);
+        // Ensure tasksRes.data is an array before using filter
+        const tasksData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+        setTasks(tasksData);
 
         // Due date reminder: notify for overdue or due-today tasks (respects notification prefs)
-        const urgentTasks = tasksRes.data.filter(t => {
+        const urgentTasks = tasksData.filter(t => {
           if (!t.due_date || t.status === 'done') return false;
           const ds = getDueDateStatus(t.due_date);
           return ds && (ds.color.includes('red') || ds.color.includes('orange'));
@@ -86,7 +90,8 @@ export default function Dashboard() {
         // Fetch users to populate assignment dropdowns
         try {
           const usersRes = await api.get('/users/');
-          setUsers(usersRes.data);
+          // Ensure usersRes.data is an array before using
+          setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
         } catch (userErr) {
           console.warn("Users endpoint not found. Using empty list.", userErr);
           setUsers([]);
