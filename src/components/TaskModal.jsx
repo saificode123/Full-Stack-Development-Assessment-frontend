@@ -1,21 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, CheckSquare, AlertCircle, LayoutList, Edit3, UserPlus } from 'lucide-react';
+import { X, CheckSquare, AlertCircle, LayoutList, Edit3, UserPlus, Trash2 } from 'lucide-react';
 import api from '../api/axios';
 
-export default function TaskModal({ 
-  isOpen, 
-  onClose, 
-  onTaskCreated, 
-  onTaskUpdated, 
-  activeTeam, 
+export default function TaskModal({
+  isOpen,
+  onClose,
+  onTaskCreated,
+  onTaskUpdated,
+  onTaskDeleted,
+  activeTeam,
   taskToEdit,
-  users // NEW: List of users to populate the assignee dropdown
+  users // List of users to populate the assignee dropdown
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('todo');
-  const [assignedTo, setAssignedTo] = useState(''); // NEW: Assignee state
+  const [assignedTo, setAssignedTo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState('');
   
   const inputRef = useRef(null);
@@ -51,6 +53,21 @@ export default function TaskModal({
   const handleClose = () => {
     setError('');
     onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete "${taskToEdit.title}"? This cannot be undone.`)) return;
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/tasks/${taskToEdit.id}/`);
+      onTaskDeleted(taskToEdit.id);
+      handleClose();
+    } catch (err) {
+      console.error("Error deleting task", err);
+      setError('Failed to delete task. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -215,6 +232,27 @@ export default function TaskModal({
                 isEditMode ? 'Save Changes' : 'Add Task'
               )}
             </button>
+
+            {/* Delete button — only shown in edit mode */}
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 py-3.5 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border border-red-100"
+              >
+                {deleteLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} /> Delete Task
+                  </>
+                )}
+              </button>
+            )}
           </form>
         </div>
       </div>

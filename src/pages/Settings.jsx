@@ -1,15 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, ArrowLeft, User, Bell, Shield, Palette, CheckCircle2, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import api from '../api/axios';
+import { getNotificationPrefs } from '../hooks/useNotifications';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('profile');
+
+  // Initialize darkMode from localStorage — this is the single source of truth
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
 
-  // Apply dark mode class to <html> element
+  // Use a ref to skip the very first effect run (already applied in main.jsx)
+  const isFirstRender = useRef(true);
+
+  // Apply dark mode class to <html> element only when darkMode state actually changes
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return; // Skip initial run — main.jsx already applied the correct class
+    }
     if (darkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -56,7 +66,9 @@ export default function SettingsPage() {
         last_name: profile.last_name,
         email: profile.email,
       });
-      setProfile(res.data);
+      // Extract only profile fields from response (response also contains 'success' key)
+      const { username, email, first_name, last_name } = res.data;
+      setProfile((prev) => ({ ...prev, username, email, first_name, last_name }));
       setProfileMsg({ type: 'success', text: 'Profile updated successfully!' });
     } catch (err) {
       setProfileMsg({ type: 'error', text: err.response?.data?.error || 'Failed to update profile.' });
@@ -66,12 +78,8 @@ export default function SettingsPage() {
   };
 
   // ─── Notifications Section State ─────────────────────────────────────────
-  const [notifications, setNotifications] = useState({
-    task_assignments: true,
-    team_invites: true,
-    task_status_updates: false,
-    weekly_digest: false,
-  });
+  // Initialize directly from localStorage via getNotificationPrefs() — no useEffect needed
+  const [notifications, setNotifications] = useState(() => getNotificationPrefs());
   const [notifSaved, setNotifSaved] = useState(false);
 
   const handleNotifToggle = (key) => {
@@ -79,19 +87,11 @@ export default function SettingsPage() {
   };
 
   const handleNotifSave = () => {
-    // Persist to localStorage (no backend endpoint needed for this)
+    // Persist to localStorage so the enforcement layer (useNotifications hook) reads it
     localStorage.setItem('notificationPrefs', JSON.stringify(notifications));
     setNotifSaved(true);
     setTimeout(() => setNotifSaved(false), 2500);
   };
-
-  // Load saved notification prefs on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('notificationPrefs');
-    if (saved) {
-      try { setNotifications(JSON.parse(saved)); } catch (e) { console.warn('Invalid notification prefs', e); }
-    }
-  }, []);
 
   const notifItems = [
     { key: 'task_assignments', label: 'Task Assignments', desc: 'Get notified when a task is assigned to you' },

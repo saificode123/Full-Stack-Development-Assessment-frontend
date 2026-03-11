@@ -3,8 +3,9 @@ import Sidebar from '../components/Sidebar';
 import TeamModal from '../components/TeamModal';
 import TaskModal from '../components/TaskModal';
 import InviteModal from '../components/InviteModal';
-import TaskFilterBar from '../components/TaskFilterBar'; 
-import useFilteredTasks from '../hooks/useFilteredTasks'; 
+import TaskFilterBar from '../components/TaskFilterBar';
+import useFilteredTasks from '../hooks/useFilteredTasks';
+import useNotifications from '../hooks/useNotifications';
 import api from '../api/axios';
 import { Plus, Clock, CheckCircle2, AlertCircle, Menu, Activity, Trash2, MailPlus } from 'lucide-react';
 
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [users, setUsers] = useState([]); // Holds users for task assignments
   const [activeTeam, setActiveTeam] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null); // Logged-in user for RBAC checks
   
   // --- 2. UI & Modal State ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -23,7 +25,7 @@ export default function Dashboard() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); 
   const [taskToEdit, setTaskToEdit] = useState(null); 
 
-  // --- 3. Custom Hook Integration (Gap 2 Solved) ---
+  // --- 3. Custom Hook Integration ---
   const {
     searchQuery,
     setSearchQuery,
@@ -32,10 +34,17 @@ export default function Dashboard() {
     filteredTasks
   } = useFilteredTasks(tasks, activeTeam);
 
+  // Notification enforcement — reads prefs from localStorage set in Settings page
+  const { notify } = useNotifications();
+
   // --- 4. Data Fetching ---
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch current user for RBAC checks
+        const profileRes = await api.get('/auth/profile/');
+        setCurrentUser(profileRes.data);
+
         const teamsRes = await api.get('/teams/');
         setTeams(teamsRes.data);
         if (teamsRes.data.length > 0) setActiveTeam(teamsRes.data[0]);
@@ -45,10 +54,10 @@ export default function Dashboard() {
 
         // Fetch users to populate assignment dropdowns
         try {
-          const usersRes = await api.get('/users/'); 
+          const usersRes = await api.get('/users/');
           setUsers(usersRes.data);
-        } catch (e) {
-          console.warn("Users endpoint not found. Using empty list.");
+        } catch (userErr) {
+          console.warn("Users endpoint not found. Using empty list.", userErr);
           setUsers([]);
         }
       } catch (err) {
@@ -96,9 +105,23 @@ export default function Dashboard() {
     }
   };
 
-  // --- 7. Derived Statistics ---
+  // --- 7. RBAC: Check if current user is the creator of the active team ---
+  const isTeamCreator = currentUser && activeTeam && activeTeam.creator === currentUser.id;
+
+  // --- 8. Derived Statistics ---
   const completedTasks = filteredTasks.filter(t => t.status === 'done').length;
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress').length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F7F5] flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 font-medium text-sm">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F7F5] flex font-sans">
@@ -143,9 +166,16 @@ export default function Dashboard() {
         activeTeam={activeTeam}
         taskToEdit={taskToEdit} 
         users={users} 
-        onTaskCreated={(newTask) => setTasks([...tasks, newTask])} 
+        onTaskCreated={(newTask) => {
+          setTasks([...tasks, newTask]);
+          notify('task_assignments', 'New Task Created', `"${newTask.title}" has been added to ${activeTeam?.name || 'your team'}.`);
+        }}
         onTaskUpdated={(updatedTask) => {
           setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+          notify('task_status_updates', 'Task Updated', `"${updatedTask.title}" status changed to ${updatedTask.status.replace('_', ' ')}.`);
+        }}
+        onTaskDeleted={(taskId) => {
+          setTasks(tasks.filter(t => t.id !== taskId));
         }}
       />
 
@@ -297,36 +327,55 @@ export default function Dashboard() {
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                   <p className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-widest">Members</p>
-                  <button 
-                    onClick={() => setIsInviteModalOpen(true)}
-                    disabled={!activeTeam}
-                    className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <MailPlus size={14} /> Invite
-                  </button>
+                  {/* RBAC: Only team creator can invite members */}
+                  {isTeamCreator && (
+                    <button
+                      onClick={() => setIsInviteModalOpen(true)}
+                      className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-100 transition-colors"
+                    >
+                      <MailPlus size={14} /> Invite
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2 sm:gap-3">
-                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-green-400 to-green-600 text-white flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-sm">
-                      SA
+                  {/* Show current user as a member */}
+                  {currentUser && (
+                    <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-green-400 to-green-600 text-white flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-sm">
+                        {currentUser.username.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm font-bold text-gray-900">
+                          {currentUser.first_name ? `${currentUser.first_name} ${currentUser.last_name}`.trim() : currentUser.username}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                          {isTeamCreator ? 'Team Creator' : 'Member'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs sm:text-sm font-bold text-gray-900">Saif</p>
-                      <p className="text-[10px] sm:text-xs text-gray-500 font-medium">Team Admin</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-gray-100 mt-auto">
-                 <button 
-                  onClick={handleDeleteTeam}
-                  disabled={!activeTeam}
-                  className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 py-3.5 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                 >
-                   <Trash2 size={18} /> Delete Team
-                 </button>
-              </div>
+              {/* RBAC: Only team creator can delete the team */}
+              {isTeamCreator && (
+                <div className="pt-6 border-t border-gray-100 mt-auto">
+                  <button
+                    onClick={handleDeleteTeam}
+                    className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 py-3.5 rounded-2xl transition-all active:scale-95"
+                  >
+                    <Trash2 size={18} /> Delete Team
+                  </button>
+                </div>
+              )}
+              {/* Non-creator sees a read-only notice */}
+              {activeTeam && !isTeamCreator && (
+                <div className="pt-6 border-t border-gray-100 mt-auto">
+                  <p className="text-xs text-center text-gray-400 font-medium py-2">
+                    🔒 Only the team creator can delete or manage this team.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
