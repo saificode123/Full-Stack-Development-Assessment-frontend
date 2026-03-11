@@ -8,9 +8,10 @@ export default function Sidebar({ teams, activeTeam, setActiveTeam, onOpenTeamMo
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout/');
-      navigate('/login');
     } catch (err) {
       console.error("Logout failed", err);
+    } finally {
+      navigate('/login');
     }
   };
 
@@ -91,7 +92,10 @@ export default function Sidebar({ teams, activeTeam, setActiveTeam, onOpenTeamMo
 
       {/* Bottom Actions */}
       <div className="p-6 border-t border-gray-100 space-y-3 shrink-0 bg-white">
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-2xl text-sm font-semibold transition-all">
+        <button
+          onClick={() => navigate('/settings')}
+          className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-2xl text-sm font-semibold transition-all active:scale-95"
+        >
           <Settings size={20} /> Settings
         </button>
         <button 
