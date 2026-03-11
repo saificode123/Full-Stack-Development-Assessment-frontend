@@ -11,6 +11,9 @@ export default function Sidebar({ teams, activeTeam, setActiveTeam, onOpenTeamMo
     } catch (err) {
       console.error("Logout failed", err);
     } finally {
+      // Clear authentication flags
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('username');
       navigate('/login');
     }
   };

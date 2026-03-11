@@ -11,11 +11,30 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(''); // Clear any previous errors
+
     try {
-      // Authenticates via Django REST Framework as per instructions
-      await api.post('/auth/login/', formData);
-      navigate('/'); 
-    } catch (err) {
+      // 1. Send login request to Django (session-based auth)
+      const response = await api.post('/auth/login/', formData);
+      
+      // 2. Django returns {'success': 'Logged in successfully', 'username': user.username}
+      // Session cookie is automatically set by the browser via withCredentials
+      // We just need to check if the request was successful
+      
+      if (response.status === 200) {
+        // 3. Store a flag to indicate user is authenticated
+        // (Session cookie is handled automatically by the browser)
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('username', response.data.username);
+        
+        // 4. Navigate to the dashboard
+        navigate('/'); 
+      } else {
+        setError('Login failed. Please try again.');
+      }
+      
+    } catch {
+      // eslint-disable-next-line no-unused-vars
       setError('Invalid credentials. Please try again.');
     }
   };
@@ -110,7 +129,7 @@ export default function Login() {
             <div className="w-64 h-64 xl:w-80 xl:h-80 bg-white rounded-full flex items-center justify-center shadow-sm relative overflow-visible">
                <div className="relative">
                  <div className="w-40 h-40 xl:w-48 xl:h-48 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-5xl xl:text-6xl animate-pulse">
-                    🚀
+                   🚀
                  </div>
                  {/* Decorative elements representing members */}
                  <div className="absolute -top-6 -left-6 w-12 h-12 xl:w-16 xl:h-16 bg-white rounded-full shadow-lg flex items-center justify-center text-xl xl:text-2xl border-2 border-green-50">👨‍💻</div>

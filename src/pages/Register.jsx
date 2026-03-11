@@ -17,21 +17,35 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(''); // Clear any previous errors when they click submit again
+
     if (formData.password !== formData.confirmPassword) {
       return setError("Passwords do not match");
     }
     
     setIsLoading(true);
     try {
-      // Endpoint for secure registration [cite: 13, 26]
+      // Endpoint for secure registration
       await api.post('/auth/register/', {
         username: formData.username,
         email: formData.email,
         password: formData.password
       });
+      
+      // Send them to the login page so they can use their new credentials!
       navigate('/login'); 
+      
     } catch (err) {
-      setError(err.response?.data?.username?.[0] || 'Registration failed. Please try again.');
+      // Better error handling to catch exact Django validation messages
+      const responseData = err.response?.data;
+      if (responseData && typeof responseData === 'object') {
+        // Grab the first error Django sends back (whether it's username, email, or password)
+        const firstErrorKey = Object.keys(responseData)[0];
+        const errorMessage = responseData[firstErrorKey];
+        setError(Array.isArray(errorMessage) ? errorMessage[0] : 'Registration failed. Check your details.');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +53,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex bg-white font-sans overflow-x-hidden">
-      {/* Left Side: Register Form [cite: 13, 19] */}
+      {/* Left Side: Register Form */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 sm:px-12 md:px-24 lg:px-20 xl:px-32 py-12">
         <div className="max-w-md w-full mx-auto">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
@@ -115,7 +129,7 @@ export default function Register() {
 
           <div className="flex justify-center space-x-3 sm:space-x-4">
             {[ {Icon: Chrome}, {Icon: Apple}, {Icon: Facebook} ].map((social, idx) => (
-              <button key={idx} className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-gray-200 rounded-full hover:bg-gray-50 transition-all shadow-sm">
+              <button key={idx} type="button" className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-gray-200 rounded-full hover:bg-gray-50 transition-all shadow-sm">
                 <social.Icon size={18} className="text-gray-900" />
               </button>
             ))}
@@ -134,7 +148,7 @@ export default function Register() {
             <div className="w-64 h-64 xl:w-80 xl:h-80 bg-white rounded-full flex items-center justify-center shadow-sm relative">
                <div className="relative">
                  <div className="w-40 h-40 xl:w-48 xl:h-48 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-5xl xl:text-6xl">
-                    ✅
+                   ✅
                  </div>
                  <div className="absolute -top-6 -left-6 w-12 h-12 xl:w-16 xl:h-16 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-green-50 animate-bounce">
                     <ShieldCheck className="text-green-600" />

@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Use relative URL in production (proxied by nginx), localhost for development
+const baseURL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+
 const api = axios.create({
-  baseURL: 'https://full-stack-development-assessment.onrender.com/',
+  baseURL: baseURL,
   withCredentials: true, 
   headers: {
     'Content-Type': 'application/json',

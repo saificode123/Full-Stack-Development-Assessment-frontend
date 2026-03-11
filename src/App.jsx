@@ -9,11 +9,12 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Authentication Routes [cite: 19, 26] */}
+        {/* Public Authentication Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         
-        {/* Protected Dashboard Route [cite: 20, 34] */}
+        {/* Protected Dashboard Route (Root URL) */}
+        {/* If a user has no token, ProtectedRoute will redirect them to /login */}
         <Route 
           path="/" 
           element={
@@ -23,7 +24,7 @@ function App() {
           } 
         />
 
-        {/* Settings Route */}
+        {/* Protected Settings Route */}
         <Route
           path="/settings"
           element={
@@ -33,8 +34,8 @@ function App() {
           }
         />
 
-        {/* Catch-all redirect to Dashboard/Login */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Catch-all: Redirect to login for unauthenticated users */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
