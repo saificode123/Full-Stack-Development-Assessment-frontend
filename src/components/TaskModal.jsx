@@ -16,6 +16,7 @@ export default function TaskModal({
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('todo');
   const [assignedTo, setAssignedTo] = useState('');
+  const [dueDate, setDueDate] = useState(''); // ISO date string YYYY-MM-DD
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,12 +37,15 @@ export default function TaskModal({
         setTitle(taskToEdit.title || '');
         setDescription(taskToEdit.description || '');
         setStatus(taskToEdit.status || 'todo');
-        setAssignedTo(taskToEdit.assigned_to || ''); // Pre-fill assignee
+        setAssignedTo(taskToEdit.assigned_to || '');
+        // Pre-fill due date: convert ISO datetime to YYYY-MM-DD for date input
+        setDueDate(taskToEdit.due_date ? taskToEdit.due_date.substring(0, 10) : '');
       } else {
         setTitle('');
         setDescription('');
         setStatus('todo');
         setAssignedTo('');
+        setDueDate('');
       }
     }
 
@@ -81,7 +85,9 @@ export default function TaskModal({
       description,
       status,
       team: activeTeam.id,
-      assigned_to: assignedTo ? parseInt(assignedTo) : null // Ensure integer ID or null
+      assigned_to: assignedTo ? parseInt(assignedTo) : null,
+      // Send due_date as ISO datetime string or null
+      due_date: dueDate ? `${dueDate}T00:00:00Z` : null,
     };
     
     try {
@@ -203,6 +209,20 @@ export default function TaskModal({
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1" htmlFor="taskDueDate">
+                Due Date (Optional)
+              </label>
+              <input
+                id="taskDueDate"
+                type="date"
+                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-900 transition-all text-sm sm:text-base text-gray-900"
+                value={dueDate}
+                min={new Date().toISOString().substring(0, 10)}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
             </div>
 
             <div>

@@ -7,7 +7,20 @@ import TaskFilterBar from '../components/TaskFilterBar';
 import useFilteredTasks from '../hooks/useFilteredTasks';
 import useNotifications from '../hooks/useNotifications';
 import api from '../api/axios';
-import { Plus, Clock, CheckCircle2, AlertCircle, Menu, Activity, Trash2, MailPlus } from 'lucide-react';
+import { Plus, Clock, CheckCircle2, AlertCircle, Menu, Activity, Trash2, MailPlus, CalendarClock } from 'lucide-react';
+
+// Helper: returns due date status for a task
+function getDueDateStatus(dueDateStr) {
+  if (!dueDateStr) return null;
+  const now = new Date();
+  const due = new Date(dueDateStr);
+  const diffMs = due - now;
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return { label: 'Overdue', color: 'text-red-600 bg-red-50 border-red-100' };
+  if (diffDays === 0) return { label: 'Due Today', color: 'text-orange-600 bg-orange-50 border-orange-100' };
+  if (diffDays <= 2) return { label: `Due in ${diffDays}d`, color: 'text-yellow-600 bg-yellow-50 border-yellow-100' };
+  return { label: `Due ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, color: 'text-gray-500 bg-gray-50 border-gray-100' };
+}
 
 export default function Dashboard() {
   // --- 1. Core State Management ---
@@ -51,6 +64,22 @@ export default function Dashboard() {
         
         const tasksRes = await api.get('/tasks/');
         setTasks(tasksRes.data);
+
+        // Due date reminder: notify for overdue or due-today tasks (respects notification prefs)
+        const urgentTasks = tasksRes.data.filter(t => {
+          if (!t.due_date || t.status === 'done') return false;
+          const ds = getDueDateStatus(t.due_date);
+          return ds && (ds.color.includes('red') || ds.color.includes('orange'));
+        });
+        if (urgentTasks.length > 0) {
+          // Will be called after notify is available — deferred to after state is set
+          setTimeout(() => {
+            urgentTasks.forEach(t => {
+              const ds = getDueDateStatus(t.due_date);
+              if (ds) notify('task_status_updates', `⏰ Task Reminder: ${t.title}`, `${ds.label} — click to view your dashboard.`);
+            });
+          }, 1000);
+        }
 
         // Fetch users to populate assignment dropdowns
         try {
@@ -255,6 +284,13 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">Task Directory</h3>
               </div>
+              {/* Due date reminder banner — shows tasks due within 2 days */}
+              {filteredTasks.some(t => t.due_date && t.status !== 'done' && getDueDateStatus(t.due_date)?.label !== undefined && (getDueDateStatus(t.due_date)?.color.includes('red') || getDueDateStatus(t.due_date)?.color.includes('orange') || getDueDateStatus(t.due_date)?.color.includes('yellow'))) && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-100 rounded-2xl flex items-center gap-2 text-sm font-medium text-yellow-700">
+                  <CalendarClock size={16} className="shrink-0" />
+                  <span>You have tasks with upcoming or overdue deadlines!</span>
+                </div>
+              )}
 
               <div className="space-y-3 sm:space-y-4">
                 {filteredTasks.length > 0 ? (
@@ -275,6 +311,15 @@ export default function Dashboard() {
                         <div className="min-w-0">
                           <h4 className="font-bold text-gray-900 group-hover:text-green-600 transition-colors text-sm sm:text-base truncate">{task.title}</h4>
                           <p className="text-xs sm:text-sm text-gray-500 truncate">{task.description}</p>
+                          {/* Due date badge */}
+                          {task.due_date && task.status !== 'done' && (() => {
+                            const ds = getDueDateStatus(task.due_date);
+                            return ds ? (
+                              <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${ds.color}`}>
+                                <CalendarClock size={9} /> {ds.label}
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
                       
