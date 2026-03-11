@@ -355,7 +355,7 @@ export default function Dashboard() {
                               title={`Assigned to ${task.assigned_to_name}`}
                               className="w-6 h-6 rounded-full bg-black border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-sm"
                             >
-                              {task.assigned_to_name.substring(0, 2).toUpperCase()}
+                              {task?.assigned_to_name?.substring(0, 2)?.toUpperCase() || 'U'}
                             </div>
                           ) : (
                             <div title="Unassigned" className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-400">?</div>
@@ -404,7 +404,7 @@ export default function Dashboard() {
                   {currentUser && (
                     <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-green-400 to-green-600 text-white flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-sm">
-                        {currentUser.username.substring(0, 2).toUpperCase()}
+                        {currentUser?.username?.substring(0, 2)?.toUpperCase()  || 'U'}
                       </div>
                       <div>
                         <p className="text-xs sm:text-sm font-bold text-gray-900">

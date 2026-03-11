@@ -39,7 +39,7 @@ export default function TaskModal({
         setStatus(taskToEdit.status || 'todo');
         setAssignedTo(taskToEdit.assigned_to || '');
         // Pre-fill due date: convert ISO datetime to YYYY-MM-DD for date input
-        setDueDate(taskToEdit.due_date ? taskToEdit.due_date.substring(0, 10) : '');
+        setDueDate(taskToEdit.due_date ? taskToEdit?.due_date?.substring(0, 10) : '') || 'U';
       } else {
         setTitle('');
         setDescription('');
@@ -220,7 +220,7 @@ export default function TaskModal({
                 type="date"
                 className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-900 transition-all text-sm sm:text-base text-gray-900"
                 value={dueDate}
-                min={new Date().toISOString().substring(0, 10)}
+                min={new Date()?.toISOString()?.substring(0, 10) || 'U'}
                 onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
