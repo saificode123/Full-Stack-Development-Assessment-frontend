@@ -2,11 +2,11 @@ import axios from 'axios';
 
 // Use the production backend URL for production, localhost for development
 const getBaseURL = () => {
-  // Production - use the Render backend URL (includes /api because that's how you set it up)
+  // Production - use the Render backend URL (without /api prefix)
   if (import.meta.env.PROD) {
-    return 'https://full-stack-development-assessment.onrender.com/api';
+    return 'https://full-stack-development-assessment.onrender.com';
   }
-  // Local development - Django runs at root without /api prefix
+  // Local development
   return 'http://localhost:8000';
 };
 
