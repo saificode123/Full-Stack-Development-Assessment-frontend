@@ -142,6 +142,7 @@ export default function Dashboard() {
   // --- 8. Derived Statistics ---
   const completedTasks = filteredTasks.filter(t => t.status === 'done').length;
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress').length;
+  const todoTasks = filteredTasks.filter(t => t.status === 'done').length;
 
   if (loading) {
     return (
@@ -280,6 +281,12 @@ export default function Dashboard() {
                   <p className="text-green-100 text-xs sm:text-sm font-medium">In Progress</p>
                   <p className="text-xl sm:text-2xl font-bold flex items-center gap-2">
                     <Clock size={18} className="text-green-200" /> {inProgressTasks}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-green-100 text-xs sm:text-sm font-medium">ToDo</p>
+                  <p className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                    <CheckCircle2 size={18} className="text-green-200" /> {todoTasks}
                   </p>
                 </div>
               </div>
