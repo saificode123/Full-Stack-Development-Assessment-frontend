@@ -22,8 +22,8 @@ export default function useFilteredTasks(tasks, activeTeam) {
       // 3. Status Filter: Match specific status or show all
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
 
-      // 4. Assignee Filter: Match assigned member 
-      const matchesAssignee = assigneeFilter === 'all' || task.assignee === assigneeFilter;
+      // 4. Assignee Filter: Match assigned member (field is assigned_to, an integer ID)
+      const matchesAssignee = assigneeFilter === 'all' || String(task.assigned_to) === String(assigneeFilter);
 
       return matchesTeam && matchesSearch && matchesStatus && matchesAssignee;
     });

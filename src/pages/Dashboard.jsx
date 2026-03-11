@@ -44,6 +44,8 @@ export default function Dashboard() {
     setSearchQuery,
     statusFilter,
     setStatusFilter,
+    assigneeFilter,
+    setAssigneeFilter,
     filteredTasks
   } = useFilteredTasks(tasks, activeTeam);
 
@@ -236,11 +238,14 @@ export default function Dashboard() {
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
-            <TaskFilterBar 
+            <TaskFilterBar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
+              assigneeFilter={assigneeFilter}
+              setAssigneeFilter={setAssigneeFilter}
+              users={users}
             />
             
             <button 
